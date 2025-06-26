@@ -1,0 +1,86 @@
+services:
+  haproxy:
+    image: haproxy:alpine
+    container_name: haproxy
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./certbot/conf/live/jetrufflekies.my.id/haproxy.pem:/etc/ssl/certs/haproxy.pem:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - wordpress1
+      - wordpress2
+    networks:
+      - network
+
+  mysql-master:
+    image: mysql:5.7
+    container_name: mysql-master
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - master:/var/lib/mysql
+      - ./mysql/master.cnf:/etc/mysql/conf.d/master.cnf
+      - ./mysql/init-master.sql:/docker-entrypoint-initdb.d/init-master.sql:ro
+    networks:
+      - network
+
+  mysql-slave:
+    image: mysql:5.7
+    container_name: mysql-slave
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - slave:/var/lib/mysql
+      - ./mysql/slave.cnf:/etc/mysql/conf.d/slave.cnf
+    depends_on:
+      - mysql-master
+    networks:
+      - network
+
+  wordpress1:
+    image: wordpress:latest
+    container_name: wordpress1
+    restart: unless-stopped
+    depends_on:
+      - mysql-master
+    environment:
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_TABLE_PREFIX: wp1_
+    volumes:
+      - wordpress1:/var/www/html
+    networks:
+      - network
+
+  wordpress2:
+    image: wordpress:latest
+    container_name: wordpress2
+    restart: unless-stopped
+    depends_on:
+      - mysql-master
+    environment:
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_TABLE_PREFIX: wp2_
+    volumes:
+      - wordpress2:/var/www/html
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge
+
+volumes:
+  master:
+  slave:
+  wordpress1:
+  wordpress2:
